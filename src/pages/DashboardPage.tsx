@@ -54,6 +54,28 @@ const DashboardPage = () => {
         }
     };
 
+    // FUNGSI BARU: Toggle status ketersediaan manual oleh Admin
+    const toggleRoomStatus = async (room: Room) => {
+        try {
+            const updatedStatus = !room.isAvailable;
+            
+            // Kirim update ke backend. Pastikan objek yang dikirim lengkap sesuai kebutuhan API PUT
+            await api.put(`/Rooms/${room.id}`, {
+                id: room.id,
+                name: room.name,
+                capacity: room.capacity,
+                facilities: room.facilities,
+                isAvailable: updatedStatus
+            });
+
+            alert(`✅ Status ruangan ${room.name} berhasil diubah.`);
+            fetchRooms(); // Refresh data
+        } catch (error) {
+            console.error("Gagal mengubah status:", error);
+            alert("❌ Gagal memperbarui status ruangan di database.");
+        }
+    };
+
     const handleDelete = async (id: number) => {
         if (confirm('⚠️ Anda yakin ingin menghapus ruangan ini secara permanen?')) {
             try {
@@ -87,6 +109,8 @@ const DashboardPage = () => {
         setRoomToBook(room);
         setIsBookingModalOpen(true);
     };
+
+    // Logika Filter
     const filteredRooms = rooms.filter(room => {
         const matchesSearch = room.name.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesStatus = statusFilter === 'all'
@@ -104,7 +128,7 @@ const DashboardPage = () => {
                     {isAdmin ? '🛡️ CAMPUS ADMIN' : '🏛️ CAMPUS BOOKING'}
                     <button
                         onClick={() => navigate('/history')}
-                        style={{ marginRight: '10px', padding: '1px 3px', borderRadius: '6px', cursor: 'pointer' }}
+                        style={styles.historyNavBtn}
                     >
                         {isAdmin ? '📂 Kelola Pinjaman' : '📑 Riwayat Saya'}
                     </button>
@@ -132,18 +156,26 @@ const DashboardPage = () => {
                         </button>
                     )}
                 </div>
+
+                {/* --- FILTER BAR --- */}
                 <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
                     <input
                         placeholder="Cari ruangan..."
-                        style={styles.searchInput} // Buat style input di const styles
+                        style={styles.searchInput}
+                        value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
-                    <select onChange={(e) => setStatusFilter(e.target.value)} style={styles.selectInput}>
+                    <select 
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)} 
+                        style={styles.selectInput}
+                    >
                         <option value="all">Semua Status</option>
                         <option value="available">Tersedia</option>
-                        <option value="busy">Dipakai</option>
+                        <option value="busy">Tidak Tersedia</option>
                     </select>
                 </div>
+
                 {loading ? (
                     <p style={{ textAlign: 'center', marginTop: 50, color: '#666' }}>Sinkronisasi database...</p>
                 ) : (
@@ -168,13 +200,20 @@ const DashboardPage = () => {
                                         </td>
                                         <td style={styles.td}>
                                             <span style={room.isAvailable ? styles.badgeAvailable : styles.badgeBusy}>
-                                                {room.isAvailable ? 'Tersedia' : 'Dipakai'}
+                                                {room.isAvailable ? 'Tersedia' : 'Tidak Tersedia'}
                                             </span>
                                         </td>
                                         <td style={styles.td}>
 
                                             {isAdmin ? (
                                                 <div style={{ display: 'flex', gap: '8px' }}>
+                                                    {/* Tombol sakelar status khusus Admin */}
+                                                    <button 
+                                                        style={room.isAvailable ? styles.deactivateBtn : styles.activateBtn} 
+                                                        onClick={() => toggleRoomStatus(room)}
+                                                    >
+                                                        {room.isAvailable ? 'Matikan' : 'Aktifkan'}
+                                                    </button>
                                                     <button style={styles.editBtn} onClick={() => openEditModal(room)}>Edit</button>
                                                     <button style={styles.deleteBtn} onClick={() => handleDelete(room.id)}>Hapus</button>
                                                 </div>
@@ -184,7 +223,7 @@ const DashboardPage = () => {
                                                     disabled={!room.isAvailable}
                                                     onClick={() => openBookingModal(room)}
                                                 >
-                                                    {room.isAvailable ? 'Pinjam Sekarang' : 'Sudah Terisi'}
+                                                    {room.isAvailable ? 'Pinjam Sekarang' : 'Tidak Tersedia'}
                                                 </button>
                                             )}
 
@@ -194,9 +233,9 @@ const DashboardPage = () => {
                             </tbody>
                         </table>
 
-                        {rooms.length === 0 && (
+                        {filteredRooms.length === 0 && (
                             <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>
-                                Database kosong. Silakan tambahkan data ruangan.
+                                Ruangan tidak ditemukan.
                             </div>
                         )}
                     </div>
@@ -204,8 +243,6 @@ const DashboardPage = () => {
             </div>
 
             {/* --- MODALS --- */}
-
-            {/* 1. Modal CRUD (Admin) */}
             <RoomModal
                 isOpen={isRoomModalOpen}
                 onClose={() => setIsRoomModalOpen(false)}
@@ -213,7 +250,6 @@ const DashboardPage = () => {
                 roomToEdit={selectedRoomForEdit}
             />
 
-            {/* 2. Modal Booking (Mahasiswa) */}
             {roomToBook && (
                 <BookingModal
                     isOpen={isBookingModalOpen}
@@ -233,8 +269,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     pageContainer: { minHeight: '100vh', backgroundColor: '#f4f7fe', fontFamily: 'sans-serif' },
     navbarAdmin: { backgroundColor: '#1a202c', padding: '15px 30px', display: 'flex', justifyContent: 'space-between', color: 'white', alignItems: 'center' },
     navbarUser: { backgroundColor: '#3182ce', padding: '15px 30px', display: 'flex', justifyContent: 'space-between', color: 'white', alignItems: 'center' },
-    navBrand: { fontSize: '18px', fontWeight: 'bold' },
+    navBrand: { fontSize: '18px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '15px' },
     navUser: { display: 'flex', gap: '20px', alignItems: 'center', fontSize: '14px' },
+    historyNavBtn: { backgroundColor: 'white', color: '#333', border: 'none', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' },
     logoutBtn: { padding: '6px 12px', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.4)', color: 'white', borderRadius: '4px', cursor: 'pointer' },
     content: { maxWidth: '1200px', margin: '30px auto', padding: '0 20px' },
     headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' },
@@ -243,6 +280,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     addBtn: { padding: '12px 24px', backgroundColor: '#48bb78', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' },
     editBtn: { padding: '6px 12px', backgroundColor: '#ecc94b', color: '#744210', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' },
     deleteBtn: { padding: '6px 12px', backgroundColor: '#f56565', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' },
+    activateBtn: { padding: '6px 12px', backgroundColor: '#48bb78', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' },
+    deactivateBtn: { padding: '6px 12px', backgroundColor: '#718096', color: '#white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' },
     bookBtn: { padding: '8px 16px', backgroundColor: '#3182ce', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' },
     disabledBtn: { padding: '8px 16px', backgroundColor: '#cbd5e0', color: '#718096', border: 'none', borderRadius: '6px', cursor: 'not-allowed', fontSize: '13px' },
     tableContainer: { backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', overflow: 'hidden' },
@@ -252,19 +291,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     td: { padding: '16px', fontSize: '14px', color: '#2d3748' },
     badgeAvailable: { backgroundColor: '#c6f6d5', color: '#22543d', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' },
     badgeBusy: { backgroundColor: '#fed7d7', color: '#822727', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' },
-    searchInput: {
-        padding: '10px',
-        borderRadius: '8px',
-        border: '1px solid #ddd',
-        width: '300px',
-        fontSize: '14px'
-    },
-    selectInput: {
-        padding: '10px',
-        borderRadius: '8px',
-        border: '1px solid #ddd',
-        backgroundColor: 'white'
-    }
+    searchInput: { padding: '10px', borderRadius: '8px', border: '1px solid #ddd', width: '300px', fontSize: '14px' },
+    selectInput: { padding: '10px', borderRadius: '8px', border: '1px solid #ddd', backgroundColor: 'white' }
 };
 
 export default DashboardPage;
