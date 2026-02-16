@@ -5,36 +5,37 @@ import type { Booking } from '../types/auth';
 
 const BookingHistoryPage = () => {
     const navigate = useNavigate();
+    
+    // --- STATE MANAGEMENT ---
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
-    const [searchHistory, setSearchHistory] = useState('');
+    
+    // State Filter (Sama seperti Dashboard)
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all'); // State baru untuk dropdown status
 
+    // --- EFFECT ---
     useEffect(() => {
         const user = localStorage.getItem('username');
         const adminStatus = user?.toLowerCase().includes('admin') || false;
         setIsAdmin(adminStatus);
         
-        // Panggil fetchBookings setelah status admin ditentukan
         fetchBookings(adminStatus);
     }, []);
 
+    // --- API HANDLER ---
     const fetchBookings = async (adminRole: boolean) => {
         setLoading(true);
         try {
-            // Tentukan endpoint berdasarkan role user sesuai backend kamu
             const endpoint = adminRole ? '/Bookings/all' : '/Bookings/my-bookings';
-
             const response = await api.get<Booking[]>(endpoint);
-            console.log("Data diterima dari DB:", response.data);
             setBookings(response.data);
         } catch (error: any) {
             console.error("Gagal memuat riwayat:", error);
-
             if (error.response?.status === 405) {
-                alert("Error 405: Endpoint tidak mendukung Method GET. Cek [HttpGet] di Controller.");
+                alert("Error 405: Cek method [HttpGet] di Backend.");
             } else if (error.response?.status === 401) {
-                alert("Sesi habis, silakan login kembali.");
                 navigate('/');
             }
         } finally {
@@ -42,62 +43,79 @@ const BookingHistoryPage = () => {
         }
     };
 
-    // Fungsi khusus Admin untuk Update Status (Approve/Reject)
     const updateStatus = async (id: number, newStatus: string) => {
         try {
-            // Pastikan endpoint PUT ini sesuai dengan controller backend kamu
             await api.put(`/Bookings/${id}/status`, { status: newStatus });
-            alert(`✅ Peminjaman berhasil di-${newStatus}`);
-            fetchBookings(isAdmin); // Refresh data
+            alert(`✅ Status berhasil diubah menjadi: ${newStatus}`);
+            fetchBookings(isAdmin);
         } catch (error) {
             console.error(error);
-            alert("❌ Gagal memperbarui status.");
+            alert("❌ Gagal update status.");
         }
     };
 
-    // Logika Filter Pencarian (Client-side)
-    const filteredBookings = bookings.filter(b => {
-        // Mendukung PascalCase dari database
-        const roomName = b.roomName || b.Room?.Name || ""; 
-        const purpose = b.purpose || b.Purpose || "";
-        
-        return roomName.toLowerCase().includes(searchHistory.toLowerCase()) ||
-               purpose.toLowerCase().includes(searchHistory.toLowerCase());
+    // --- LOGIKA FILTER GABUNGAN (SEARCH + STATUS) ---
+    const filteredBookings = bookings.filter((b) => {
+        // 1. Filter Text (Nama Ruangan / Keperluan)
+        const term = searchTerm.toLowerCase();
+        const roomName = (b.roomName || '').toLowerCase();
+        const purpose = (b.purpose || '').toLowerCase();
+        const matchesSearch = roomName.includes(term) || purpose.includes(term);
+
+        // 2. Filter Status (Dropdown)
+        const status = (b.status || '').toLowerCase();
+        const matchesStatus = statusFilter === 'all' 
+            ? true 
+            : status === statusFilter.toLowerCase();
+
+        // Gabungkan keduanya
+        return matchesSearch && matchesStatus;
     });
 
     return (
-        <div style={{ padding: '40px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'sans-serif' }}>
+        <div style={styles.pageContainer}>
             
-            {/* Header & Navigasi */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '30px', alignItems: 'center' }}>
+            {/* HEADER */}
+            <div style={styles.headerRow}>
                 <div>
-                    <h1 style={{ margin: 0 }}>📋 Riwayat Peminjaman</h1>
-                    <p style={{ color: '#666', marginTop: '5px' }}>
-                        {isAdmin ? 'Mode Admin: Pantau dan kelola semua peminjaman.' : 'Mode Mahasiswa: Pantau status peminjaman kamu.'}
+                    <h1 style={styles.title}>📋 Riwayat Peminjaman</h1>
+                    <p style={styles.subtitle}>
+                        {isAdmin ? 'Pantau semua aktivitas peminjaman.' : 'Daftar pengajuan peminjamanmu.'}
                     </p>
                 </div>
                 <button onClick={() => navigate('/dashboard')} style={styles.backBtn}>
-                    ← Kembali ke Dashboard
+                    ← Kembali
                 </button>
             </div>
 
-            {/* Search Bar */}
-            <div style={{ marginBottom: '25px' }}>
-                <input
-                    placeholder="Cari berdasarkan ruangan atau keperluan..."
+            {/* --- FILTER BAR (SAMA PERSIS DENGAN DASHBOARD) --- */}
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+                <input 
+                    type="text" 
+                    placeholder="Cari ruangan atau keperluan..." 
                     style={styles.searchInput}
-                    value={searchHistory}
-                    onChange={(e) => setSearchHistory(e.target.value)}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                 />
+                
+                <select 
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)} 
+                    style={styles.selectInput}
+                >
+                    <option value="all">Semua Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                </select>
             </div>
 
+            {/* TABLE */}
             {loading ? (
-                <div style={{ textAlign: 'center', padding: '50px' }}>
-                    <p>Sedang sinkronisasi riwayat...</p>
-                </div>
+                <p style={{textAlign: 'center', padding: 20}}>Memuat data...</p>
             ) : (
                 <div style={styles.tableCard}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <table style={styles.table}>
                         <thead>
                             <tr style={{ backgroundColor: '#f8fafc', textAlign: 'left' }}>
                                 <th style={styles.th}>Waktu Mulai</th>
@@ -109,12 +127,11 @@ const BookingHistoryPage = () => {
                         </thead>
                         <tbody>
                             {filteredBookings.map((b) => {
-                                // Penanganan Case Sensitivity properti database
-                                const status = b.status || b.Status;
-                                const purpose = b.purpose || b.Purpose;
-                                const sTime = b.startTime || b.StartTime;
-                                const eTime = b.endTime || b.EndTime;
-                                const bId = b.id || b.Id;
+                                const sTime = b.startTime;
+                                const eTime = b.endTime;
+                                const purpose = b.purpose;
+                                const status = b.status;
+                                const bId = b.id;
 
                                 return (
                                     <tr key={bId} style={styles.tr}>
@@ -133,19 +150,9 @@ const BookingHistoryPage = () => {
                                         {isAdmin && (
                                             <td style={styles.td}>
                                                 {status === 'Pending' && (
-                                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                                        <button 
-                                                            onClick={() => updateStatus(bId, 'Approved')} 
-                                                            style={styles.btnApprove}
-                                                        >
-                                                            Approve
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => updateStatus(bId, 'Rejected')} 
-                                                            style={styles.btnReject}
-                                                        >
-                                                            Reject
-                                                        </button>
+                                                    <div style={{display: 'flex', gap: '5px'}}>
+                                                        <button onClick={() => updateStatus(bId, 'Approved')} style={styles.btnApprove}>✓</button>
+                                                        <button onClick={() => updateStatus(bId, 'Rejected')} style={styles.btnReject}>✕</button>
                                                     </div>
                                                 )}
                                             </td>
@@ -155,10 +162,10 @@ const BookingHistoryPage = () => {
                             })}
                         </tbody>
                     </table>
-                    
+
                     {filteredBookings.length === 0 && (
-                        <div style={{ padding: '40px', textAlign: 'center', color: '#888' }}>
-                            Tidak ada riwayat peminjaman ditemukan.
+                        <div style={{padding: '40px', textAlign: 'center', color: '#888'}}>
+                            Tidak ada data yang cocok.
                         </div>
                     )}
                 </div>
@@ -169,51 +176,46 @@ const BookingHistoryPage = () => {
 
 // --- STYLES ---
 const styles: { [key: string]: React.CSSProperties } = {
-    tableCard: { 
-        backgroundColor: 'white', 
-        borderRadius: '12px', 
-        boxShadow: '0 4px 15px rgba(0,0,0,0.05)', 
-        overflow: 'hidden',
-        border: '1px solid #e2e8f0'
-    },
-    th: { 
-        padding: '18px 16px', 
-        borderBottom: '2px solid #edf2f7', 
-        color: '#4a5568', 
-        fontSize: '13px', 
-        fontWeight: 'bold', 
-        textTransform: 'uppercase', 
-        letterSpacing: '0.5px' 
-    },
-    td: { padding: '16px', fontSize: '14px', color: '#2d3748' },
-    tr: { borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' },
-    backBtn: { 
-        padding: '10px 18px', 
-        cursor: 'pointer', 
-        borderRadius: '8px', 
-        border: '1px solid #3182ce', 
-        backgroundColor: 'white', 
-        color: '#3182ce',
-        fontWeight: '600',
-        transition: '0.2s'
-    },
-    searchInput: {
-        padding: '12px 16px',
-        borderRadius: '10px',
-        border: '1px solid #cbd5e0',
-        width: '100%',
-        maxWidth: '400px',
-        fontSize: '15px',
-        boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)'
-    },
-    // Status Badge Styles
-    statusApprove: { backgroundColor: '#c6f6d5', color: '#22543d', padding: '5px 12px', borderRadius: '20px', fontWeight: 'bold', fontSize: '11px' },
-    statusPending: { backgroundColor: '#fef3c7', color: '#92400e', padding: '5px 12px', borderRadius: '20px', fontWeight: 'bold', fontSize: '11px' },
-    statusReject: { backgroundColor: '#fed7d7', color: '#822727', padding: '5px 12px', borderRadius: '20px', fontWeight: 'bold', fontSize: '11px' },
+    pageContainer: { minHeight: '100vh', backgroundColor: '#f4f7fe', padding: '40px 20px', fontFamily: 'sans-serif' },
+    headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', maxWidth: '1000px', margin: '0 auto 20px auto' },
+    title: { fontSize: '26px', fontWeight: 'bold', color: '#2d3748', margin: 0 },
+    subtitle: { color: '#718096', fontSize: '14px', marginTop: '5px' },
+    backBtn: { padding: '8px 16px', border: '1px solid #cbd5e0', backgroundColor: 'white', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', color: '#4a5568' },
     
-    // Admin Button Styles
-    btnApprove: { backgroundColor: '#48bb78', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' },
-    btnReject: { backgroundColor: '#f56565', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }
+    // Style Filter (Sama dengan Dashboard)
+    searchInput: { 
+        padding: '10px', 
+        borderRadius: '8px', 
+        border: '1px solid #ddd', 
+        width: '300px', 
+        fontSize: '14px',
+        marginLeft: 'auto', // Trik biar dia nempel ke kiri container tapi dalam flex row
+        marginRight: 0 
+    },
+    selectInput: { 
+        padding: '10px', 
+        borderRadius: '8px', 
+        border: '1px solid #ddd', 
+        backgroundColor: 'white',
+        cursor: 'pointer'
+    },
+    
+    // Table Styles
+    tableCard: { maxWidth: '1000px', margin: '0 auto', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', overflow: 'hidden' },
+    table: { width: '100%', borderCollapse: 'collapse' },
+    th: { padding: '16px', backgroundColor: '#f7fafc', borderBottom: '2px solid #edf2f7', color: '#4a5568', fontWeight: 'bold', fontSize: '13px', textAlign: 'left' },
+    tr: { borderBottom: '1px solid #edf2f7' },
+    td: { padding: '16px', fontSize: '14px', color: '#2d3748' },
+    
+    // Badges & Buttons
+    statusApprove: { backgroundColor: '#c6f6d5', color: '#22543d', padding: '4px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold' },
+    statusPending: { backgroundColor: '#fef3c7', color: '#92400e', padding: '4px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold' },
+    statusReject: { backgroundColor: '#fed7d7', color: '#822727', padding: '4px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold' },
+    btnApprove: { backgroundColor: '#48bb78', color: 'white', border: 'none', width: '30px', height: '30px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' },
+    btnReject: { backgroundColor: '#f56565', color: 'white', border: 'none', width: '30px', height: '30px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' },
 };
+
+styles.searchInput = { ...styles.searchInput, marginLeft: '120px' }; // Reset margin left
+styles.headerRow = { ...styles.headerRow, maxWidth: '1000px', margin: '0 auto 20px auto' };
 
 export default BookingHistoryPage;
