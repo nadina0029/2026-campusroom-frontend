@@ -8,6 +8,7 @@ const BookingHistoryPage = () => {
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
+    const [searchHistory, setSearchHistory] = useState('');
 
     useEffect(() => {
         const user = localStorage.getItem('username');
@@ -52,12 +53,24 @@ const BookingHistoryPage = () => {
         }
     };
 
+    const filteredBookings = bookings.filter(b => {
+        const roomName = b.roomName || b.Room?.Name || ""; // Sesuaikan dengan hasil console.log sebelumnya
+        const purpose = b.purpose || b.Purpose || "";
+        return roomName.toLowerCase().includes(searchHistory.toLowerCase()) ||
+            purpose.toLowerCase().includes(searchHistory.toLowerCase());
+    });
+
     return (
         <div style={{ padding: '40px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'sans-serif' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '30px' }}>
                 <h1>📋 Riwayat Peminjaman</h1>
                 <button onClick={() => navigate('/dashboard')} style={styles.backBtn}>Kembali ke Dashboard</button>
             </div>
+            <input
+                placeholder="Cari riwayat (ruangan/keperluan)..."
+                style={styles.searchInput}
+                onChange={(e) => setSearchHistory(e.target.value)}
+            />
 
             {loading ? <p>Memuat data...</p> : (
                 <div style={styles.tableCard}>
@@ -72,7 +85,7 @@ const BookingHistoryPage = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {bookings.map((b) => (
+                            {filteredBookings.map((b) => (
                                 <tr key={b.id} style={{ borderBottom: '1px solid #eee' }}>
                                     <td style={styles.td}>{new Date(b.startTime).toLocaleString()}</td>
                                     <td style={styles.td}>{new Date(b.endTime).toLocaleString()}</td>
@@ -111,7 +124,20 @@ const styles = {
     statusPending: { backgroundColor: '#fef3c7', color: '#92400e', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' as const, fontSize: '12px' },
     statusReject: { backgroundColor: '#fed7d7', color: '#822727', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' as const, fontSize: '12px' },
     btnApprove: { backgroundColor: '#48bb78', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' },
-    btnReject: { backgroundColor: '#f56565', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }
+    btnReject: { backgroundColor: '#f56565', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' },
+    searchInput: {
+        padding: '10px',
+        borderRadius: '8px',
+        border: '1px solid #ddd',
+        width: '300px',
+        fontSize: '14px'
+    },
+    selectInput: {
+        padding: '10px',
+        borderRadius: '8px',
+        border: '1px solid #ddd',
+        backgroundColor: 'white'
+    }
 };
 
 export default BookingHistoryPage;

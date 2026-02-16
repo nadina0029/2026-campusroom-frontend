@@ -21,6 +21,8 @@ const DashboardPage = () => {
     // State untuk Modal Mahasiswa (Booking)
     const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
     const [roomToBook, setRoomToBook] = useState<Room | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all');
 
     // --- INITIAL LOAD ---
     useEffect(() => {
@@ -85,6 +87,13 @@ const DashboardPage = () => {
         setRoomToBook(room);
         setIsBookingModalOpen(true);
     };
+    const filteredRooms = rooms.filter(room => {
+        const matchesSearch = room.name.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesStatus = statusFilter === 'all'
+            ? true
+            : statusFilter === 'available' ? room.isAvailable : !room.isAvailable;
+        return matchesSearch && matchesStatus;
+    });
 
     return (
         <div style={styles.pageContainer}>
@@ -123,7 +132,18 @@ const DashboardPage = () => {
                         </button>
                     )}
                 </div>
-
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+                    <input
+                        placeholder="Cari ruangan..."
+                        style={styles.searchInput} // Buat style input di const styles
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                    <select onChange={(e) => setStatusFilter(e.target.value)} style={styles.selectInput}>
+                        <option value="all">Semua Status</option>
+                        <option value="available">Tersedia</option>
+                        <option value="busy">Dipakai</option>
+                    </select>
+                </div>
                 {loading ? (
                     <p style={{ textAlign: 'center', marginTop: 50, color: '#666' }}>Sinkronisasi database...</p>
                 ) : (
@@ -139,7 +159,7 @@ const DashboardPage = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {rooms.map((room) => (
+                                {filteredRooms.map((room) => (
                                     <tr key={room.id} style={styles.tr}>
                                         <td style={styles.td}><b>{room.name}</b></td>
                                         <td style={styles.td}>{room.capacity} Org</td>
@@ -232,6 +252,19 @@ const styles: { [key: string]: React.CSSProperties } = {
     td: { padding: '16px', fontSize: '14px', color: '#2d3748' },
     badgeAvailable: { backgroundColor: '#c6f6d5', color: '#22543d', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' },
     badgeBusy: { backgroundColor: '#fed7d7', color: '#822727', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' },
+    searchInput: {
+        padding: '10px',
+        borderRadius: '8px',
+        border: '1px solid #ddd',
+        width: '300px',
+        fontSize: '14px'
+    },
+    selectInput: {
+        padding: '10px',
+        borderRadius: '8px',
+        border: '1px solid #ddd',
+        backgroundColor: 'white'
+    }
 };
 
 export default DashboardPage;
