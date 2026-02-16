@@ -1,0 +1,23 @@
+/* src/index.css */
+
+/* 1. Hapus margin/padding bawaan browser */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* 2. Pastikan HTML, Body, dan Root mengambil 100% layar */
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: white; /* Paksa jadi putih/terang */
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* 3. Hapus style aneh bawaan link/tombol */
+a {
+  text-decoration: none;
+}
