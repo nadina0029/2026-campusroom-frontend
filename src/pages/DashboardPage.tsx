@@ -54,12 +54,11 @@ const DashboardPage = () => {
         }
     };
 
-    // FUNGSI BARU: Toggle status ketersediaan manual oleh Admin
+    // Fungsi Toggle Status Manual (Admin)
     const toggleRoomStatus = async (room: Room) => {
         try {
             const updatedStatus = !room.isAvailable;
-            
-            // Kirim update ke backend. Pastikan objek yang dikirim lengkap sesuai kebutuhan API PUT
+
             await api.put(`/Rooms/${room.id}`, {
                 id: room.id,
                 name: room.name,
@@ -69,10 +68,10 @@ const DashboardPage = () => {
             });
 
             alert(`✅ Status ruangan ${room.name} berhasil diubah.`);
-            fetchRooms(); // Refresh data
+            fetchRooms();
         } catch (error) {
             console.error("Gagal mengubah status:", error);
-            alert("❌ Gagal memperbarui status ruangan di database.");
+            alert("❌ Gagal memperbarui status ruangan.");
         }
     };
 
@@ -126,12 +125,7 @@ const DashboardPage = () => {
             <nav style={isAdmin ? styles.navbarAdmin : styles.navbarUser}>
                 <div style={styles.navBrand}>
                     {isAdmin ? '🛡️ CAMPUS ADMIN' : '🏛️ CAMPUS BOOKING'}
-                    <button
-                        onClick={() => navigate('/history')}
-                        style={styles.historyNavBtn}
-                    >
-                        {isAdmin ? '📂 Kelola Pinjaman' : '📑 Riwayat Saya'}
-                    </button>
+                    {/* Tombol history dihapus dari sini agar Navbar bersih */}
                 </div>
                 <div style={styles.navUser}>
                     <span>Halo, <b>{username}</b></span>
@@ -142,6 +136,7 @@ const DashboardPage = () => {
             {/* --- MAIN CONTENT --- */}
             <div style={styles.content}>
 
+                {/* --- HEADER ROW (Tempat Tombol Aksi Utama) --- */}
                 <div style={styles.headerRow}>
                     <div>
                         <h1 style={styles.title}>Daftar Ruangan Kampus</h1>
@@ -150,11 +145,33 @@ const DashboardPage = () => {
                         </p>
                     </div>
 
-                    {isAdmin && (
-                        <button style={styles.addBtn} onClick={openAddModal}>
-                            + Tambah Ruangan
-                        </button>
-                    )}
+                    {/* POSISI TOMBOL UTAMA: Kanan Atas */}
+                    {/* POSISI TOMBOL UTAMA: Kanan Atas */}
+                    <div>
+                        {isAdmin ? (
+                            // --- TAMPILAN ADMIN: Ada 2 Tombol (History & Tambah) ---
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <button
+                                    style={styles.historyBtn} // Kita pakai style yang sama
+                                    onClick={() => navigate('/history')}
+                                >
+                                    📂 Kelola Pinjaman
+                                </button>
+
+                                <button style={styles.addBtn} onClick={openAddModal}>
+                                    + Tambah Ruangan
+                                </button>
+                            </div>
+                        ) : (
+                            // --- TAMPILAN MAHASISWA: Hanya 1 Tombol (History) ---
+                            <button
+                                style={styles.historyBtn}
+                                onClick={() => navigate('/history')}
+                            >
+                                📂 Riwayat Saya
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {/* --- FILTER BAR --- */}
@@ -165,9 +182,9 @@ const DashboardPage = () => {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
-                    <select 
+                    <select
                         value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)} 
+                        onChange={(e) => setStatusFilter(e.target.value)}
                         style={styles.selectInput}
                     >
                         <option value="all">Semua Status</option>
@@ -204,12 +221,11 @@ const DashboardPage = () => {
                                             </span>
                                         </td>
                                         <td style={styles.td}>
-
                                             {isAdmin ? (
                                                 <div style={{ display: 'flex', gap: '8px' }}>
-                                                    {/* Tombol sakelar status khusus Admin */}
-                                                    <button 
-                                                        style={room.isAvailable ? styles.deactivateBtn : styles.activateBtn} 
+                                                    {/* Tombol Sakelar Admin */}
+                                                    <button
+                                                        style={room.isAvailable ? styles.deactivateBtn : styles.activateBtn}
                                                         onClick={() => toggleRoomStatus(room)}
                                                     >
                                                         {room.isAvailable ? 'Matikan' : 'Aktifkan'}
@@ -226,7 +242,6 @@ const DashboardPage = () => {
                                                     {room.isAvailable ? 'Pinjam Sekarang' : 'Tidak Tersedia'}
                                                 </button>
                                             )}
-
                                         </td>
                                     </tr>
                                 ))}
@@ -271,19 +286,36 @@ const styles: { [key: string]: React.CSSProperties } = {
     navbarUser: { backgroundColor: '#3182ce', padding: '15px 30px', display: 'flex', justifyContent: 'space-between', color: 'white', alignItems: 'center' },
     navBrand: { fontSize: '18px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '15px' },
     navUser: { display: 'flex', gap: '20px', alignItems: 'center', fontSize: '14px' },
-    historyNavBtn: { backgroundColor: 'white', color: '#333', border: 'none', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' },
     logoutBtn: { padding: '6px 12px', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.4)', color: 'white', borderRadius: '4px', cursor: 'pointer' },
     content: { maxWidth: '1200px', margin: '30px auto', padding: '0 20px' },
     headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' },
     title: { fontSize: '26px', color: '#2d3748', margin: 0, fontWeight: 'bold' },
     subtitle: { color: '#718096', marginTop: '5px' },
-    addBtn: { padding: '12px 24px', backgroundColor: '#48bb78', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' },
+
+    // Button Styles
+    addBtn: { padding: '12px 24px', backgroundColor: '#48bb78', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' },
+
+    // STYLE BARU UNTUK TOMBOL HISTORY
+    historyBtn: {
+        padding: '12px 24px',
+        backgroundColor: 'white',
+        color: '#3182ce',
+        border: '2px solid #3182ce',
+        borderRadius: '8px',
+        fontWeight: 'bold',
+        cursor: 'pointer',
+        fontSize: '14px',
+        transition: '0.2s',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+    },
+
     editBtn: { padding: '6px 12px', backgroundColor: '#ecc94b', color: '#744210', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' },
     deleteBtn: { padding: '6px 12px', backgroundColor: '#f56565', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' },
     activateBtn: { padding: '6px 12px', backgroundColor: '#48bb78', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' },
     deactivateBtn: { padding: '6px 12px', backgroundColor: '#718096', color: '#white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' },
     bookBtn: { padding: '8px 16px', backgroundColor: '#3182ce', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' },
     disabledBtn: { padding: '8px 16px', backgroundColor: '#cbd5e0', color: '#718096', border: 'none', borderRadius: '6px', cursor: 'not-allowed', fontSize: '13px' },
+
     tableContainer: { backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', overflow: 'hidden' },
     table: { width: '100%', borderCollapse: 'collapse' },
     th: { backgroundColor: '#f7fafc', padding: '16px', textAlign: 'left', fontSize: '13px', fontWeight: 'bold', color: '#4a5568', borderBottom: '1px solid #e2e8f0' },
