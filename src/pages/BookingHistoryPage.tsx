@@ -11,9 +11,9 @@ const BookingHistoryPage = () => {
     const [loading, setLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
     
-    // State Filter (Sama seperti Dashboard)
+    // State Filter
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState('all'); // State baru untuk dropdown status
+    const [statusFilter, setStatusFilter] = useState('all');
 
     // --- EFFECT ---
     useEffect(() => {
@@ -30,6 +30,7 @@ const BookingHistoryPage = () => {
         try {
             const endpoint = adminRole ? '/Bookings/all' : '/Bookings/my-bookings';
             const response = await api.get<Booking[]>(endpoint);
+            console.log("Full Data Response:", response.data); // Cek console browser!
             setBookings(response.data);
         } catch (error: any) {
             console.error("Gagal memuat riwayat:", error);
@@ -54,21 +55,37 @@ const BookingHistoryPage = () => {
         }
     };
 
-    // --- LOGIKA FILTER GABUNGAN (SEARCH + STATUS) ---
-    const filteredBookings = bookings.filter((b) => {
-        // 1. Filter Text (Nama Ruangan / Keperluan)
-        const term = searchTerm.toLowerCase();
-        const roomName = (b.roomName || '').toLowerCase();
-        const purpose = (b.purpose || '').toLowerCase();
-        const matchesSearch = roomName.includes(term) || purpose.includes(term);
+    // --- HELPER: AMBIL NAMA DENGAN AMAN ---
+    // Fungsi ini mencoba membaca 'Name' (C#) dan 'name' (JS) sekaligus
+    const getSafeData = (booking: Booking) => {
+        // Kita pakai 'as any' untuk bypass pengecekan ketat TypeScript sementara
+        const rawRoom = booking.room as any;
+        const rawUser = booking.user as any;
 
-        // 2. Filter Status (Dropdown)
+        const roomName = rawRoom?.Name || rawRoom?.name || booking.roomName || '-';
+        const userName = rawUser?.Username || rawUser?.username || booking.userName || '-';
+        
+        return { roomName, userName };
+    };
+
+    // --- LOGIKA FILTER ---
+    const filteredBookings = bookings.filter((b) => {
+        const { roomName, userName } = getSafeData(b);
+        const purpose = (b.purpose || '').toLowerCase();
+        const term = searchTerm.toLowerCase();
+
+        // 1. Filter Search
+        const matchesSearch = 
+            roomName.toLowerCase().includes(term) || 
+            purpose.includes(term) || 
+            userName.toLowerCase().includes(term);
+
+        // 2. Filter Status
         const status = (b.status || '').toLowerCase();
         const matchesStatus = statusFilter === 'all' 
             ? true 
             : status === statusFilter.toLowerCase();
 
-        // Gabungkan keduanya
         return matchesSearch && matchesStatus;
     });
 
@@ -80,7 +97,7 @@ const BookingHistoryPage = () => {
                 <div>
                     <h1 style={styles.title}>📋 Riwayat Peminjaman</h1>
                     <p style={styles.subtitle}>
-                        {isAdmin ? 'Pantau semua aktivitas peminjaman.' : 'Daftar pengajuan peminjamanmu.'}
+                        {isAdmin ? 'Pantau aktivitas peminjaman mahasiswa.' : 'Daftar pengajuan peminjamanmu.'}
                     </p>
                 </div>
                 <button onClick={() => navigate('/dashboard')} style={styles.backBtn}>
@@ -88,11 +105,11 @@ const BookingHistoryPage = () => {
                 </button>
             </div>
 
-            {/* --- FILTER BAR (SAMA PERSIS DENGAN DASHBOARD) --- */}
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+            {/* --- FILTER BAR --- */}
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', maxWidth: '1000px', margin: '0 auto 20px auto' }}>
                 <input 
                     type="text" 
-                    placeholder="Cari ruangan atau keperluan..." 
+                    placeholder={isAdmin ? "Cari ruangan, mahasiswa, atau keperluan..." : "Cari ruangan atau keperluan..."}
                     style={styles.searchInput}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -118,6 +135,9 @@ const BookingHistoryPage = () => {
                     <table style={styles.table}>
                         <thead>
                             <tr style={{ backgroundColor: '#f8fafc', textAlign: 'left' }}>
+                                <th style={styles.th}>Ruangan</th>
+                                {isAdmin && <th style={styles.th}>Peminjam</th>} 
+                                
                                 <th style={styles.th}>Waktu Mulai</th>
                                 <th style={styles.th}>Waktu Selesai</th>
                                 <th style={styles.th}>Keperluan</th>
@@ -127,32 +147,41 @@ const BookingHistoryPage = () => {
                         </thead>
                         <tbody>
                             {filteredBookings.map((b) => {
-                                const sTime = b.startTime;
-                                const eTime = b.endTime;
-                                const purpose = b.purpose;
-                                const status = b.status;
-                                const bId = b.id;
-
+                                // Ambil data menggunakan Helper Function kita
+                                const { roomName, userName } = getSafeData(b);
+                                
                                 return (
-                                    <tr key={bId} style={styles.tr}>
-                                        <td style={styles.td}>{new Date(sTime).toLocaleString()}</td>
-                                        <td style={styles.td}>{new Date(eTime).toLocaleString()}</td>
-                                        <td style={styles.td}>{purpose}</td>
+                                    <tr key={b.id} style={styles.tr}>
+                                        {/* Nama Ruangan */}
+                                        <td style={{...styles.td, fontWeight: 'bold'}}>{roomName}</td>
+                                        
+                                        {/* Nama Peminjam (Hanya Admin) */}
+                                        {isAdmin && (
+                                            <td style={{...styles.td, color: '#3182ce'}}>{userName}</td>
+                                        )}
+
+                                        <td style={styles.td}>{new Date(b.startTime).toLocaleString()}</td>
+                                        <td style={styles.td}>{new Date(b.endTime).toLocaleString()}</td>
+                                        <td style={styles.td}>{b.purpose}</td>
+                                        
+                                        {/* Status Badge */}
                                         <td style={styles.td}>
                                             <span style={
-                                                status === 'Approved' ? styles.statusApprove : 
-                                                status === 'Pending' ? styles.statusPending : 
+                                                b.status === 'Approved' ? styles.statusApprove : 
+                                                b.status === 'Pending' ? styles.statusPending : 
                                                 styles.statusReject
                                             }>
-                                                {status}
+                                                {b.status}
                                             </span>
                                         </td>
+
+                                        {/* Tombol Aksi Admin */}
                                         {isAdmin && (
                                             <td style={styles.td}>
-                                                {status === 'Pending' && (
+                                                {b.status === 'Pending' && (
                                                     <div style={{display: 'flex', gap: '5px'}}>
-                                                        <button onClick={() => updateStatus(bId, 'Approved')} style={styles.btnApprove}>✓</button>
-                                                        <button onClick={() => updateStatus(bId, 'Rejected')} style={styles.btnReject}>✕</button>
+                                                        <button onClick={() => updateStatus(b.id, 'Approved')} style={styles.btnApprove}>✓</button>
+                                                        <button onClick={() => updateStatus(b.id, 'Rejected')} style={styles.btnReject}>✕</button>
                                                     </div>
                                                 )}
                                             </td>
@@ -182,40 +211,20 @@ const styles: { [key: string]: React.CSSProperties } = {
     subtitle: { color: '#718096', fontSize: '14px', marginTop: '5px' },
     backBtn: { padding: '8px 16px', border: '1px solid #cbd5e0', backgroundColor: 'white', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', color: '#4a5568' },
     
-    // Style Filter (Sama dengan Dashboard)
-    searchInput: { 
-        padding: '10px', 
-        borderRadius: '8px', 
-        border: '1px solid #ddd', 
-        width: '300px', 
-        fontSize: '14px',
-        marginLeft: 'auto', // Trik biar dia nempel ke kiri container tapi dalam flex row
-        marginRight: 0 
-    },
-    selectInput: { 
-        padding: '10px', 
-        borderRadius: '8px', 
-        border: '1px solid #ddd', 
-        backgroundColor: 'white',
-        cursor: 'pointer'
-    },
+    searchInput: { padding: '10px', borderRadius: '8px', border: '1px solid #ddd', width: '300px', fontSize: '14px', marginLeft: 'auto', marginRight: 0 },
+    selectInput: { padding: '10px', borderRadius: '8px', border: '1px solid #ddd', backgroundColor: 'white', cursor: 'pointer' },
     
-    // Table Styles
     tableCard: { maxWidth: '1000px', margin: '0 auto', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', overflow: 'hidden' },
     table: { width: '100%', borderCollapse: 'collapse' },
     th: { padding: '16px', backgroundColor: '#f7fafc', borderBottom: '2px solid #edf2f7', color: '#4a5568', fontWeight: 'bold', fontSize: '13px', textAlign: 'left' },
     tr: { borderBottom: '1px solid #edf2f7' },
     td: { padding: '16px', fontSize: '14px', color: '#2d3748' },
     
-    // Badges & Buttons
     statusApprove: { backgroundColor: '#c6f6d5', color: '#22543d', padding: '4px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold' },
     statusPending: { backgroundColor: '#fef3c7', color: '#92400e', padding: '4px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold' },
     statusReject: { backgroundColor: '#fed7d7', color: '#822727', padding: '4px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold' },
     btnApprove: { backgroundColor: '#48bb78', color: 'white', border: 'none', width: '30px', height: '30px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' },
     btnReject: { backgroundColor: '#f56565', color: 'white', border: 'none', width: '30px', height: '30px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' },
 };
-
-styles.searchInput = { ...styles.searchInput, marginLeft: '120px' }; // Reset margin left
-styles.headerRow = { ...styles.headerRow, maxWidth: '1000px', margin: '0 auto 20px auto' };
 
 export default BookingHistoryPage;
