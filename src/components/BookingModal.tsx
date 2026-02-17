@@ -1,141 +1,156 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import api from '../api/axiosInstance';
+import Swal from 'sweetalert2';
 
-interface BookingModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    roomName: string;
-    roomId: number;
-    onSuccess: () => void;
+interface Props {
+  isOpen: boolean;
+  onClose: () => void;
+  roomName: string;
+  roomId: number;
+  onSuccess: () => void;
 }
 
-const BookingModal = ({ isOpen, onClose, roomName, roomId, onSuccess }: BookingModalProps) => {
-    const [bookingDate, setBookingDate] = useState('');
-    const [startTime, setStartTime] = useState('');
-    const [endTime, setEndTime] = useState('');
-    const [description, setDescription] = useState('');
-    const [loading, setLoading] = useState(false);
+const BookingModal: React.FC<Props> = ({ isOpen, onClose, roomName, roomId, onSuccess }) => {
+  const [formData, setFormData] = useState({
+    startTime: '',
+    endTime: '',
+    purpose: ''
+  });
 
-    if (!isOpen) return null;
+  const handleBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.post('/Bookings', {
+        roomId,
+        startTime: formData.startTime,
+        endTime: formData.endTime,
+        purpose: formData.purpose
+      });
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
+      Swal.fire({
+        icon: 'success',
+        title: 'Berhasil Diajukan!',
+        text: 'Permintaan peminjaman Anda sedang diproses oleh admin.',
+        background: '#0f172a', 
+        color: '#fff', 
+        confirmButtonColor: '#6366f1'
+      });
 
-        try {
-            // Sesuaikan payload dengan kolom di image_6d6e26.png
-            const bookingData = {
-                roomId: roomId,
-                // Gabungkan tanggal dan jam menjadi format ISO String yang disukai ASP.NET
-                startTime: `${bookingDate}T${startTime}:00`,
-                endTime: `${bookingDate}T${endTime}:00`,
-                purpose: description, // Sesuaikan 'description' UI ke kolom 'Purpose' DB
-            };
+      onSuccess();
+      onClose();
+    } catch (error: any) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Pengajuan Gagal',
+        text: error.response?.data || 'Jadwal mungkin bertabrakan dengan peminjaman lain.',
+        background: '#0f172a', 
+        color: '#fff',
+        confirmButtonColor: '#ef4444'
+      });
+    }
+  };
 
-            console.log("Mengirim data ke backend:", bookingData);
+  if (!isOpen) return null;
 
-            await api.post('/Bookings', bookingData);
+  return (
+    <div style={styles.overlay}>
+      {/* INJECT CSS UNTUK MERUBAH WARNA ICON KALENDER */}
+      <style>
+        {`
+          input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+          }
+        `}
+      </style>
 
-            alert(`Berhasil meminjam ruangan ${roomName}!`);
-            onSuccess();
-            onClose();
-        } catch (error: any) {
-            console.error("Error Detail:", error.response?.data);
-            const pesanError = error.response?.data?.message || 'Gagal meminjam. Cek kecocokan jadwal.';
-            alert('Gagal: ' + pesanError);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div style={styles.overlay}>
-            <div style={styles.modal}>
-                <div style={styles.header}>
-                    <h2>📅 Pinjam Ruangan</h2>
-                    <p style={{ color: '#666', marginTop: 5 }}>Kamu akan meminjam: <b>{roomName}</b></p>
-                </div>
-
-                <form onSubmit={handleSubmit}>
-                    {/* Tanggal */}
-                    <div style={styles.inputGroup}>
-                        <label style={styles.label}>Tanggal Peminjaman</label>
-                        <input
-                            type="date"
-                            style={styles.input}
-                            value={bookingDate}
-                            onChange={(e) => setBookingDate(e.target.value)}
-                            required
-                        />
-                    </div>
-
-                    <div style={{ display: 'flex', gap: 15 }}>
-                        {/* Jam Mulai */}
-                        <div style={{ ...styles.inputGroup, flex: 1 }}>
-                            <label style={styles.label}>Jam Mulai</label>
-                            <input
-                                type="time"
-                                style={styles.input}
-                                value={startTime}
-                                onChange={(e) => setStartTime(e.target.value)}
-                                required
-                            />
-                        </div>
-
-                        {/* Jam Selesai */}
-                        <div style={{ ...styles.inputGroup, flex: 1 }}>
-                            <label style={styles.label}>Jam Selesai</label>
-                            <input
-                                type="time"
-                                style={styles.input}
-                                value={endTime}
-                                onChange={(e) => setEndTime(e.target.value)}
-                                required
-                            />
-                        </div>
-                    </div>
-
-                    {/* Keperluan */}
-                    <div style={styles.inputGroup}>
-                        <label style={styles.label}>Keperluan / Kegiatan</label>
-                        <textarea
-                            style={{ ...styles.input, height: 80 }}
-                            placeholder="Contoh: Rapat Himpunan, Belajar Kelompok..."
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            required
-                        />
-                    </div>
-
-                    <div style={styles.buttonGroup}>
-                        <button type="button" onClick={onClose} style={styles.cancelBtn}>Batal</button>
-                        <button type="submit" disabled={loading} style={styles.submitBtn}>
-                            {loading ? 'Memproses...' : 'Ajukan Peminjaman'}
-                        </button>
-                    </div>
-                </form>
-            </div>
+      <div style={styles.glassModal}>
+        <div style={styles.header}>
+          <div>
+            <h2 style={styles.title}>📅 Form <span style={styles.accentText}>Peminjaman</span></h2>
+            <p style={styles.roomSubtitle}>{roomName}</p>
+          </div>
+          <button onClick={onClose} style={styles.closeBtn}>✕</button>
         </div>
-    );
+
+        <form onSubmit={handleBooking} style={styles.form}>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Waktu Mulai</label>
+            <input 
+              type="datetime-local" 
+              style={styles.input} 
+              required
+              onChange={e => setFormData({...formData, startTime: e.target.value})}
+            />
+          </div>
+
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Waktu Selesai</label>
+            <input 
+              type="datetime-local" 
+              style={styles.input} 
+              required
+              onChange={e => setFormData({...formData, endTime: e.target.value})}
+            />
+          </div>
+
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Keperluan / Alasan</label>
+            <textarea 
+              placeholder="Sebutkan kegiatan Anda secara rinci..."
+              style={{...styles.input, minHeight: '100px', resize: 'none'}} 
+              required
+              onChange={e => setFormData({...formData, purpose: e.target.value})}
+            />
+          </div>
+
+          <div style={styles.infoBox}>
+             <span style={{ marginRight: '8px' }}>ℹ️</span> 
+             Pastikan jadwal tidak bentrok dengan agenda lainnya.
+          </div>
+
+          <button type="submit" style={styles.submitBtn}>AJUKAN PEMINJAMAN</button>
+        </form>
+      </div>
+    </div>
+  );
 };
 
-// Styles
 const styles: { [key: string]: React.CSSProperties } = {
-    overlay: {
-        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
-    },
-    modal: {
-        backgroundColor: 'white', padding: '30px', borderRadius: '16px', width: '90%', maxWidth: '450px',
-        boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
-    },
-    header: { textAlign: 'center', marginBottom: 20 },
-    inputGroup: { marginBottom: 15 },
-    label: { display: 'block', marginBottom: 8, fontWeight: '600', fontSize: '14px', color: '#4a5568' },
-    input: { width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e0', fontSize: '15px' },
-    buttonGroup: { display: 'flex', gap: 10, marginTop: 25 },
-    cancelBtn: { flex: 1, padding: '12px', backgroundColor: '#edf2f7', color: '#4a5568', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' },
-    submitBtn: { flex: 1, padding: '12px', backgroundColor: '#3182ce', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }
+  overlay: { 
+    position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', 
+    backgroundColor: 'rgba(2, 6, 23, 0.8)', backdropFilter: 'blur(8px)', 
+    display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 
+  },
+  glassModal: { 
+    backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(20px)', 
+    width: '90%', maxWidth: '450px', borderRadius: '28px', padding: '40px', 
+    border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' 
+  },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '30px' },
+  title: { color: '#fff', margin: 0, fontSize: '24px', fontWeight: '900', letterSpacing: '-1px' },
+  accentText: { background: 'linear-gradient(to right, #6366f1, #22d3ee)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
+  roomSubtitle: { color: '#ffffff', margin: '8px 0 0 0', fontWeight: '800', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px' },
+  closeBtn: { background: 'rgba(255,255,255,0.05)', border: 'none', color: '#94a3b8', fontSize: '16px', cursor: 'pointer', width: '32px', height: '32px', borderRadius: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center' },
+  
+  form: { display: 'flex', flexDirection: 'column', gap: '22px' },
+  inputGroup: { display: 'flex', flexDirection: 'column', gap: '8px' },
+  label: { color: '#38bdf8', fontSize: '11px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px' },
+  input: { 
+    padding: '14px 16px', backgroundColor: 'rgba(2, 6, 23, 0.3)', border: '1px solid rgba(255, 255, 255, 0.1)', 
+    borderRadius: '14px', color: '#fff', outline: 'none', fontSize: '14px', transition: '0.3s', fontFamily: 'inherit'
+  },
+  infoBox: { 
+    padding: '14px', backgroundColor: 'rgba(56, 189, 248, 0.05)', color: '#cbd5e1', 
+    borderRadius: '14px', fontSize: '12px', border: '1px solid rgba(56, 189, 248, 0.1)',
+    lineHeight: '1.5'
+  },
+  submitBtn: { 
+    padding: '16px', background: 'linear-gradient(to right, #6366f1, #22d3ee)', 
+    color: '#fff', border: 'none', borderRadius: '14px', fontWeight: '900', 
+    cursor: 'pointer', transition: '0.3s', boxShadow: '0 8px 20px rgba(99, 102, 241, 0.3)',
+    letterSpacing: '1px', marginTop: '5px'
+  }
 };
 
 export default BookingModal;
