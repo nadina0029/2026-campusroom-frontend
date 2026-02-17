@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axiosInstance';
-import type { LoginResponse } from '../types/auth'; // Pakai 'type' biar aman
+import type { LoginResponse } from '../types/auth'; 
 
 const LoginPage = () => {
   const [username, setUsername] = useState('');
@@ -26,10 +26,17 @@ const LoginPage = () => {
       navigate('/dashboard'); 
       
     } catch (err: any) {
-      if (err.response && err.response.status === 401) {
-        setError('Username atau Password salah!');
+      console.error(err);
+      
+      if (err.response) {
+        // HAPUS bagian if (err.response.status === 403)
+        if (err.response.status === 401) {
+           setError('Username atau Password salah!');
+        } else {
+           setError('Terjadi kesalahan: ' + err.response.data);
+        }
       } else {
-        setError('Gagal terhubung ke server.');
+        setError('❌ Gagal terhubung ke server.');
       }
     } finally {
       setLoading(false);
@@ -38,7 +45,7 @@ const LoginPage = () => {
 
   return (
     <div style={styles.container}>
-      {/* Background decoration (Opsional: Lingkaran hiasan) */}
+      {/* Background decoration (Lingkaran hiasan) */}
       <div style={styles.circle1}></div>
       <div style={styles.circle2}></div>
 
@@ -49,6 +56,7 @@ const LoginPage = () => {
           <p style={styles.subtitle}>Sistem Peminjaman Ruangan Kampus</p>
         </div>
         
+        {/* Alert Error */}
         {error && <div style={styles.errorAlert}>{error}</div>}
 
         <form onSubmit={handleLogin}>
@@ -81,9 +89,24 @@ const LoginPage = () => {
           </button>
         </form>
 
-        <p style={styles.footerText}>
-          Belum punya akun? Hubungi <span style={{color: '#007bff', cursor: 'pointer'}}>Admin Kampus</span>.
-        </p>
+        {/* BAGIAN LINK REGISTER (DIPERBARUI) */}
+        <div style={{ marginTop: '25px', textAlign: 'center', fontSize: '14px', color: '#718096' }}>
+            <p style={{ margin: 0 }}>Belum punya akun?</p>
+            <span 
+                style={{ 
+                    color: '#3182ce', 
+                    cursor: 'pointer', 
+                    fontWeight: 'bold', 
+                    textDecoration: 'underline',
+                    display: 'inline-block',
+                    marginTop: '5px'
+                }} 
+                onClick={() => navigate('/register')} // Arahkan ke halaman Register
+            >
+                Daftar akun baru di sini
+            </span>
+        </div>
+
       </div>
     </div>
   );
@@ -103,11 +126,11 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   card: {
     backgroundColor: 'white',
-    padding: '40px 50px', // Padding lebih besar biar lega
+    padding: '40px 50px',
     borderRadius: '16px',
-    boxShadow: '0 10px 25px rgba(0,0,0,0.1)', // Bayangan lembut tapi tegas
+    boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
     width: '100%',
-    maxWidth: '480px', // Lebar maksimal desktop standard
+    maxWidth: '480px',
     zIndex: 2,
     position: 'relative',
   },
@@ -138,7 +161,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   input: {
     width: '100%',
-    padding: '14px 16px', // Input lebih tinggi
+    padding: '14px 16px',
     borderRadius: '8px',
     border: '1px solid #e2e8f0',
     backgroundColor: '#f8fafc',
@@ -151,7 +174,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   button: {
     width: '100%',
     padding: '16px',
-    backgroundColor: '#3182ce', // Biru profesional
+    backgroundColor: '#3182ce',
     color: 'white',
     border: 'none',
     borderRadius: '8px',
@@ -171,12 +194,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '14px',
     textAlign: 'center',
     border: '1px solid #fed7d7',
-  },
-  footerText: {
-    textAlign: 'center',
-    marginTop: '25px',
-    fontSize: '14px',
-    color: '#718096',
+    fontWeight: '500'
   },
   // Hiasan background (Lingkaran abstrak)
   circle1: {
